@@ -4,6 +4,7 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 import math
 
+from math import degrees
 from skimage import io
 from matplotlib.lines import Line2D
 
@@ -50,17 +51,30 @@ def eulerAnglesToRotationMatrix(theta) :
 
 # Calculates projection matrix given intrinsics and extrinsic mat
 def calc_P(intrinsic_mat, extrinsic_mat, offset=0):
+    print("\ncalc_P offset: ", offset, "\n")
     ravel_mode = 'C'
     P0 = intrinsic_mat
     P0 = np.column_stack((P0, np.array([0, 0, 0])))
 
     R = extrinsic_mat[:3, :3]
-    T = extrinsic_mat[:3, 3]
-    T1 = np.array([0, T[1], 0])   # x (carla -y), y (carla -z), z (carla x),  
+    T = extrinsic_mat[:3, 3]    # X, Y, Z (CARLA coords, meters)
+    print("T[0] = CARLA X = ", T[0])
+    print("T[1] = CARLA Y = ", T[1])
+    print("T[2] = CARLA Z = ", T[2])
+
+    # T1 = np.array([T[1], T[2], 0])   # x (carla -y), y (carla -z), z (carla x)
+    T1 = np.array([T[1], T[2], -T[0] - offset*100])   # x (carla -y), y (carla -z), z (carla x)
+    # T1 = np.array([0, 0, 0])   # x (carla -y), y (carla -z), z (carla x)
 
     pitch, yaw, roll = rotationMatrixToEulerAngles(R)
 
-    R1 = np.array(eulerAnglesToRotationMatrix((offset, 0, 0)))  # roll (carla pitch), pitch (carla yaw), img_yaw (carla roll)
+    # degree representation of carla pitch, yaw, roll
+    # Pitch and roll have inverted sign 
+    pitch_deg, yaw_deg, roll_deg = map(degrees, (-pitch, yaw, -roll))
+    print("\nCARLA pitch = ", pitch_deg, "\nCARLA yaw = ", yaw_deg, "\nCARLA roll = ", roll_deg)
+
+    # R1 = np.array(eulerAnglesToRotationMatrix((pitch, 0, roll)))  # roll (carla pitch), pitch (carla yaw), img_yaw (carla roll)
+    R1 = np.array(eulerAnglesToRotationMatrix((pitch, 0, roll)))  # roll (carla pitch), pitch (carla yaw), img_yaw (carla roll)
     
     RT1 = np.column_stack((R1, T1))
     RT1 = np.row_stack((RT1, np.array([0, 0, 0, 1])))
@@ -160,5 +174,5 @@ if __name__ == '__main__':
   # P2 = calc_P(intrinsic_mat, extrinsic_mat)
   # draw_labels(labels, P2)
 
-  for i in range(100):
+  for i in range(200):
     draw_labels(ax, labels, calc_P(intrinsic_mat, extrinsic_mat, offset=i/100))
