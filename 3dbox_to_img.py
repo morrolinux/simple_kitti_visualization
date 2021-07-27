@@ -56,7 +56,7 @@ def calc_P(intrinsic_mat, extrinsic_mat, offset=0):
 
     R = extrinsic_mat[:3, :3]
     T = extrinsic_mat[:3, 3]
-    T1 = np.array([0, T[1], 10])   # x (carla -y), y (carla -z), z (carla x),  
+    T1 = np.array([0, T[1], 0])   # x (carla -y), y (carla -z), z (carla x),  
 
     pitch, yaw, roll = rotationMatrixToEulerAngles(R)
 
