@@ -101,10 +101,12 @@ def draw_labels(ax, labels, P2, extrinsic_mat, pause=0.001):
       corners_3d = np.vstack([x_corners, y_corners, z_corners])  # (3, 8)
 
       # transform the 3d bbox from object coordiante to camera_0 coordinate
-      # R = eulerAnglesToRotationMatrix((0, rot_y, 0))
-      R = extrinsic_mat[:3, :3]
-      pitch, yaw, roll = rotationMatrixToEulerAngles(R)
-      R = np.array(eulerAnglesToRotationMatrix((-pitch, -yaw, roll)))  # roll (carla pitch), pitch (carla yaw), img_yaw (carla roll)
+      R = eulerAnglesToRotationMatrix((0, rot_y, 0))
+      R1 = extrinsic_mat[:3, :3]
+      pitch, yaw, roll = rotationMatrixToEulerAngles(R1)
+      # R = np.array(eulerAnglesToRotationMatrix((0, rot_y, 0)))  # roll (carla pitch), pitch (carla yaw), img_yaw (carla roll)
+      R1 = np.array(eulerAnglesToRotationMatrix((-pitch, 0, roll)))  # roll (carla pitch), pitch (carla yaw), img_yaw (carla roll)
+      R = np.dot(R1.T, R)
 
       corners_3d = np.dot(R, corners_3d).T + np.array([x, y, z])
 
@@ -174,7 +176,7 @@ if __name__ == '__main__':
   figManager = plt.get_current_fig_manager()
   figManager.window.showMaximized()
 
-  # P2 = calc_P(intrinsic_mat, extrinsic_mat)
+  P2 = calc_P(intrinsic_mat, extrinsic_mat)
   # draw_labels(labels, P2)
 
   for i in range(200):
