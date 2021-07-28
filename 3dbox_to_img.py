@@ -63,8 +63,8 @@ def calc_P(intrinsic_mat, extrinsic_mat, offset=0):
     print("T[2] = CARLA Z = ", T[2])
 
     # T1 = np.array([T[1], T[2], 0])   # x (carla -y), y (carla -z), z (carla x)
-    T1 = np.array([T[1], T[2], -T[0] - offset*100])   # x (carla -y), y (carla -z), z (carla x)
-    # T1 = np.array([0, 0, 0])   # x (carla -y), y (carla -z), z (carla x)
+    # T1 = np.array([0, T[2], 0])   # x (carla -y), y (carla -z), z (carla x)
+    T1 = np.array([0, 0, 0])   # x (carla -y), y (carla -z), z (carla x)
 
     pitch, yaw, roll = rotationMatrixToEulerAngles(R)
 
@@ -74,7 +74,8 @@ def calc_P(intrinsic_mat, extrinsic_mat, offset=0):
     print("\nCARLA pitch = ", pitch_deg, "\nCARLA yaw = ", yaw_deg, "\nCARLA roll = ", roll_deg)
 
     # R1 = np.array(eulerAnglesToRotationMatrix((pitch, 0, roll)))  # roll (carla pitch), pitch (carla yaw), img_yaw (carla roll)
-    R1 = np.array(eulerAnglesToRotationMatrix((pitch, 0, roll)))  # roll (carla pitch), pitch (carla yaw), img_yaw (carla roll)
+    # R1 = np.array(eulerAnglesToRotationMatrix((pitch, 0, roll)))  # roll (carla pitch), pitch (carla yaw), img_yaw (carla roll)
+    R1 = np.array(eulerAnglesToRotationMatrix((0, 0, 0)))  # roll (carla pitch), pitch (carla yaw), img_yaw (carla roll)
     
     RT1 = np.column_stack((R1, T1))
     RT1 = np.row_stack((RT1, np.array([0, 0, 0, 1])))
@@ -85,14 +86,14 @@ def calc_P(intrinsic_mat, extrinsic_mat, offset=0):
     return P0
 
 
-def draw_labels(ax, labels, P2, pause=0.001):
+def draw_labels(ax, labels, P2, extrinsic_mat, pause=0.001):
   # draw image
   # plt.imshow(img)
 
   for line in labels:
     line = line.split()
-    lab, _, _, _, _, _, _, _, h, w, l, x, y, z, rot = line
-    h, w, l, x, y, z, rot = map(float, [h, w, l, x, y, z, rot])
+    lab, trunc, occ, alpha, bb_l, bb_t, bb_r, bb_b, h, w, l, x, y, z, rot_y = line
+    h, w, l, x, y, z, rot_y = map(float, [h, w, l, x, y, z, rot_y])
     if lab != 'DontCare':
       x_corners = [l / 2, l / 2, -l / 2, -l / 2, l / 2, l / 2, -l / 2, -l / 2]
       y_corners = [0, 0, 0, 0, -h, -h, -h, -h]
@@ -100,9 +101,11 @@ def draw_labels(ax, labels, P2, pause=0.001):
       corners_3d = np.vstack([x_corners, y_corners, z_corners])  # (3, 8)
 
       # transform the 3d bbox from object coordiante to camera_0 coordinate
-      R = np.array([[np.cos(rot), 0, np.sin(rot)],
-                    [0, 1, 0],
-                    [-np.sin(rot), 0, np.cos(rot)]])
+      # R = eulerAnglesToRotationMatrix((0, rot_y, 0))
+      R = extrinsic_mat[:3, :3]
+      pitch, yaw, roll = rotationMatrixToEulerAngles(R)
+      R = np.array(eulerAnglesToRotationMatrix((-pitch, -yaw, roll)))  # roll (carla pitch), pitch (carla yaw), img_yaw (carla roll)
+
       corners_3d = np.dot(R, corners_3d).T + np.array([x, y, z])
 
       # transform the 3d bbox from camera_0 coordinate to camera_x image
@@ -175,4 +178,4 @@ if __name__ == '__main__':
   # draw_labels(labels, P2)
 
   for i in range(200):
-    draw_labels(ax, labels, calc_P(intrinsic_mat, extrinsic_mat, offset=i/100))
+    draw_labels(ax, labels, calc_P(intrinsic_mat, extrinsic_mat, offset=i/100), extrinsic_mat)
