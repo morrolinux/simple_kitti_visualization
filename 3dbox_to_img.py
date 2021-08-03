@@ -51,16 +51,16 @@ def eulerAnglesToRotationMatrix(theta) :
 
 # Calculates projection matrix given intrinsics and extrinsic mat
 def calc_P(intrinsic_mat, extrinsic_mat, offset=0):
-    print("\ncalc_P offset: ", offset, "\n")
+    # print("\ncalc_P offset: ", offset, "\n")
     ravel_mode = 'C'
     P0 = intrinsic_mat
     P0 = np.column_stack((P0, np.array([0, 0, 0])))
 
     R = extrinsic_mat[:3, :3]
     T = extrinsic_mat[:3, 3]    # X, Y, Z (CARLA coords, meters)
-    print("T[0] = CARLA X = ", T[0])
-    print("T[1] = CARLA Y = ", T[1])
-    print("T[2] = CARLA Z = ", T[2])
+    # print("T[0] = CARLA X = ", T[0])
+    # print("T[1] = CARLA Y = ", T[1])
+    # print("T[2] = CARLA Z = ", T[2])
 
     # T1 = np.array([T[1], T[2], 0])   # x (carla -y), y (carla -z), z (carla x)
     # T1 = np.array([0, T[2], 0])   # x (carla -y), y (carla -z), z (carla x)
@@ -71,7 +71,7 @@ def calc_P(intrinsic_mat, extrinsic_mat, offset=0):
     # degree representation of carla pitch, yaw, roll
     # Pitch and roll have inverted sign 
     pitch_deg, yaw_deg, roll_deg = map(degrees, (-pitch, yaw, -roll))
-    print("\nCARLA pitch = ", pitch_deg, "\nCARLA yaw = ", yaw_deg, "\nCARLA roll = ", roll_deg)
+    # print("\nCARLA pitch = ", pitch_deg, "\nCARLA yaw = ", yaw_deg, "\nCARLA roll = ", roll_deg)
 
     # R1 = np.array(eulerAnglesToRotationMatrix((pitch, 0, roll)))  # roll (carla pitch), pitch (carla yaw), img_yaw (carla roll)
     # R1 = np.array(eulerAnglesToRotationMatrix((pitch, 0, roll)))  # roll (carla pitch), pitch (carla yaw), img_yaw (carla roll)
@@ -79,12 +79,11 @@ def calc_P(intrinsic_mat, extrinsic_mat, offset=0):
     
     RT1 = np.column_stack((R1, T1))
     RT1 = np.row_stack((RT1, np.array([0, 0, 0, 1])))
-    print("RT1:", RT1)
+    # print("RT1:", RT1)
 
     P0 = np.matmul(P0, RT1)
 
     return P0
-
 
 def draw_labels(ax, labels, P2, extrinsic_mat, pause=0.001):
   # draw image
@@ -138,6 +137,10 @@ def draw_labels(ax, labels, P2, extrinsic_mat, pause=0.001):
       line(corners_img[6], corners_img[2])
       line(corners_img[7], corners_img[3])
 
+      props = dict(boxstyle='round', facecolor='wheat', alpha=0.5)
+      ax.text(int(bb_r)/2000, 1-int(bb_b)/1000, lab, transform=ax.transAxes, fontsize=14,
+        verticalalignment='top', bbox=props)
+
   # fig.patch.set_visible(False)
   # plt.savefig('examples/kitti_3dbox_to_img.png', bbox_inches='tight')
   fig.canvas.draw()
@@ -178,6 +181,6 @@ if __name__ == '__main__':
 
   P2 = calc_P(intrinsic_mat, extrinsic_mat)
   # draw_labels(labels, P2)
-
+ 
   for i in range(200):
     draw_labels(ax, labels, calc_P(intrinsic_mat, extrinsic_mat, offset=i/100), extrinsic_mat)
