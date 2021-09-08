@@ -10,12 +10,11 @@ from matplotlib.lines import Line2D
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--file_id", default='000010')
+parser.add_argument("--batch", action="store_true", default=False)
 args = parser.parse_args()
 
 colors = sns.color_palette('Paired', 9 * 2)
 names = ['Car', 'Van', 'Truck', 'Pedestrian', 'Person_sitting', 'Cyclist', 'Tram', 'Misc', 'DontCare']
-
-file_id = args.file_id
 
 
 # Calculates rotation matrix to euler angles
@@ -85,7 +84,13 @@ def calc_P(intrinsic_mat, extrinsic_mat, offset=0):
 
     return P0
 
-def draw_labels(ax, labels, P2, extrinsic_mat, pause=0.001):
+
+def write_flat(f, name, arr):
+    f.write("{}: {}\n".format(name, ' '.join(
+        map(str, arr.flatten('C').squeeze()))))
+
+
+def draw_labels(ax, labels, P2, R1, pause=0.001, vtc="", itv=""):
   # draw image
   # plt.imshow(img)
 
@@ -99,14 +104,13 @@ def draw_labels(ax, labels, P2, extrinsic_mat, pause=0.001):
       z_corners = [w / 2, -w / 2, -w / 2, w / 2, w / 2, -w / 2, -w / 2, w / 2]
       corners_3d = np.vstack([x_corners, y_corners, z_corners])  # (3, 8)
 
-      # transform the 3d bbox from object coordiante to camera_0 coordinate
+      # Apply object label rotation 
       R = eulerAnglesToRotationMatrix((0, rot_y, 0))
-      R1 = extrinsic_mat[:3, :3]
-      pitch, yaw, roll = rotationMatrixToEulerAngles(R1)
-      # R = np.array(eulerAnglesToRotationMatrix((0, rot_y, 0)))  # roll (carla pitch), pitch (carla yaw), img_yaw (carla roll)
-      R1 = np.array(eulerAnglesToRotationMatrix((-pitch, 0, roll)))  # roll (carla pitch), pitch (carla yaw), img_yaw (carla roll)
-      R = np.dot(R1.T, R)
+      R = np.dot(R1, R)
 
+      if pause == 0:
+        return
+    
       corners_3d = np.dot(R, corners_3d).T + np.array([x, y, z])
 
       # transform the 3d bbox from camera_0 coordinate to camera_x image
@@ -152,35 +156,67 @@ def draw_labels(ax, labels, P2, extrinsic_mat, pause=0.001):
 
 if __name__ == '__main__':
 
-  # load image
-  img = np.array(io.imread(f'examples/kitti/image_2/{file_id}.png'), dtype=np.int32)
+  file_ids = []
 
-  # load labels
-  with open(f'examples/kitti/label_2/{file_id}.txt', 'r') as f:
-    labels = f.readlines()
+  if args.batch:
+    with open("examples/kitti/trainval.txt") as f:
+      for line in f.readlines():
+        file_ids.append(line.strip())
+  else:
+    file_ids.append(args.file_id)
 
-  # load intrinsics and extrinsics
-  with open(f'examples/kitti/calib/{file_id}.i', 'rb') as f:
-    intrinsic_mat = np.load(f)
-  with open(f'examples/kitti/calib/{file_id}.e', 'rb') as f:
-    extrinsic_mat = np.load(f)
+  for file_id in file_ids:
 
-  # load calibration file
-  # with open(f'examples/kitti/calib/{file_id}.txt', 'r') as f:
-  #   lines = f.readlines()
-  #   P2 = np.array(lines[2].strip().split(' ')[1:], dtype=np.float32).reshape(3, 4)
+    print(file_id)
 
-  fig = plt.figure()
-  ax = fig.gca()
-  fig.show()
-  ax.imshow(img)
-  plt.axis('off')
-  plt.tight_layout()
-  figManager = plt.get_current_fig_manager()
-  figManager.window.showMaximized()
+    # load image
+    img = np.array(io.imread(f'examples/kitti/image/{file_id}.png'), dtype=np.int32)
 
-  P2 = calc_P(intrinsic_mat, extrinsic_mat)
-  # draw_labels(labels, P2)
- 
-  for i in range(200):
-    draw_labels(ax, labels, calc_P(intrinsic_mat, extrinsic_mat, offset=i/100), extrinsic_mat)
+    # load labels
+    with open(f'examples/kitti/label/{file_id}.txt', 'r') as f:
+      labels = f.readlines()
+
+    # load intrinsics and extrinsics
+    with open(f'examples/kitti/calib/{file_id}.i', 'rb') as f:
+      intrinsic_mat = np.load(f)
+    with open(f'examples/kitti/calib/{file_id}.e', 'rb') as f:
+      extrinsic_mat = np.load(f)
+
+    # load calibration file
+    with open(f'examples/kitti/calib/{file_id}.txt', 'r') as f:
+      lines = f.readlines()
+      velo_to_cam = lines[5]
+      imu_to_velo = lines[6]
+      
+    # P2 = np.array(lines[2].strip().split(' ')[1:], dtype=np.float32).reshape(3, 4)
+    P2 = calc_P(intrinsic_mat, extrinsic_mat)
+
+    # transform the 3d bbox from object coordiante to camera_0 coordinate
+    R = eulerAnglesToRotationMatrix((0, 0, 0))
+    R1 = extrinsic_mat[:3, :3]
+    pitch, yaw, roll = rotationMatrixToEulerAngles(R1)
+    R1 = np.array(eulerAnglesToRotationMatrix((-pitch, 0, roll)))  # roll (carla pitch), pitch (carla yaw), img_yaw (carla roll)
+    R = np.dot(R1.T, R)
+    P0 = np.ravel(P2, order='C')
+
+    if args.batch:
+      # All matrices are written on a line with spacing
+      with open(f'examples/kitti/calib/{file_id}.txt', 'w') as f:
+        for i in range(4):  # Avod expects all 4 P-matrices even though we only use the first
+            write_flat(f, "P" + str(i), P0)
+        write_flat(f, "R0_rect", R)
+        f.write(velo_to_cam)
+        f.write(imu_to_velo)
+    else:
+      fig = plt.figure()
+      ax = fig.gca()
+      fig.show()
+      ax.imshow(img)
+      plt.axis('off')
+      plt.tight_layout()
+      figManager = plt.get_current_fig_manager()
+      figManager.window.showMaximized()   
+      draw_labels(ax, labels, P2, R, pause=10, vtc=velo_to_cam, itv=imu_to_velo)
+
+    # for i in range(200):
+    #   draw_labels(ax, labels, calc_P(intrinsic_mat, extrinsic_mat, offset=i/100), extrinsic_mat)
