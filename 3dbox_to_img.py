@@ -188,22 +188,23 @@ if __name__ == '__main__':
       velo_to_cam = lines[5]
       imu_to_velo = lines[6]
       
-    # P2 = np.array(lines[2].strip().split(' ')[1:], dtype=np.float32).reshape(3, 4)
-    P2 = calc_P(intrinsic_mat, extrinsic_mat)
+    P2 = np.array(lines[2].strip().split(' ')[1:], dtype=np.float32).reshape(3, 4)
+    R = np.array(lines[4].strip().split(' ')[1:], dtype=np.float32).reshape(3, 3)
 
-    # transform the 3d bbox from object coordiante to camera_0 coordinate
-    R = eulerAnglesToRotationMatrix((0, 0, 0))
-    R1 = extrinsic_mat[:3, :3]
-    pitch, yaw, roll = rotationMatrixToEulerAngles(R1)
-    R1 = np.array(eulerAnglesToRotationMatrix((-pitch, 0, roll)))  # roll (carla pitch), pitch (carla yaw), img_yaw (carla roll)
-    R = np.dot(R1.T, R)
-    P0 = np.ravel(P2, order='C')
+    # FIX CARLA PROJECTIONS USING R (NO LONGER NEEDED)
+    # P2 = calc_P(intrinsic_mat, extrinsic_mat)
+    # # transform the 3d bbox from object coordiante to camera_0 coordinate
+    # R = eulerAnglesToRotationMatrix((0, 0, 0))
+    # R1 = extrinsic_mat[:3, :3]
+    # pitch, yaw, roll = rotationMatrixToEulerAngles(R1)
+    # R1 = np.array(eulerAnglesToRotationMatrix((-pitch, 0, roll)))  # roll (carla pitch), pitch (carla yaw), img_yaw (carla roll)
+    # R = np.dot(R1.T, R)
 
     if args.batch:
       # All matrices are written on a line with spacing
       with open(f'examples/kitti/calib/{file_id}.txt', 'w') as f:
         for i in range(4):  # Avod expects all 4 P-matrices even though we only use the first
-            write_flat(f, "P" + str(i), P0)
+            write_flat(f, "P" + str(i), np.ravel(P2, order='C'))
         write_flat(f, "R0_rect", R)
         f.write(velo_to_cam)
         f.write(imu_to_velo)
